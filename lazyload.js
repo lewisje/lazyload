@@ -5,8 +5,8 @@ LazyLoad makes it easy and painless to lazily load one or more external
 JavaScript or CSS files on demand either during or after the rendering of a web
 page.
 
-Supported browsers include Firefox 2+, IE6+, Safari 3+ (including Mobile
-Safari), Google Chrome, and Opera 9+. Other browsers may or may not work and
+Supported browsers include Firefox 3.6+, IE9+, Safari 5.1.4+ (untested) (including Mobile
+Safari), Google Chrome 10+, and Opera 12+. Other browsers may or may not work and
 are not officially supported.
 
 Visit https://github.com/rgrove/lazyload/ for more info.
@@ -43,7 +43,7 @@ LazyLoad = (function (doc) {
   var env,
 
   // Reference to the <head> element (populated lazily).
-  head,
+  head = doc.head,
 
   // Requests currently in progress, if any.
   pending = {},
@@ -105,7 +105,7 @@ LazyLoad = (function (doc) {
       // If this is the last of the pending URLs, execute the callback and
       // start the next request in the queue (if any).
       if (!urls.length) {
-        callback && callback.call(p.context, p.obj);
+        callback && callback();
         pending[type] = null;
         queue[type].length && load(type);
       }
@@ -130,7 +130,7 @@ LazyLoad = (function (doc) {
     };
 
     (env.webkit = /AppleWebKit\//.test(ua))
-      || (env.ie = /MSIE|Trident/.test(ua))
+      || (env.ie = /Trident/.test(ua))
       || (env.opera = /Opera/.test(ua))
       || (env.gecko = /Gecko\//.test(ua))
       || (env.unknown = true);
@@ -153,13 +153,10 @@ LazyLoad = (function (doc) {
   @param {String|Array} urls (optional) URL or array of URLs to load
   @param {Function} callback (optional) callback function to execute when the
     resource is loaded
-  @param {Object} obj (optional) object to pass to the callback function
-  @param {Object} context (optional) if provided, the callback function will
-    be executed in this object's context
   @private
   */
-  function load(type, urls, callback, obj, context) {
-    var _finish = function () { finish(type); },
+  function load(type, urls, callback) {
+    var _finish = finish.bind(null, type),
         isCSS   = type === 'css',
         nodes   = [],
         i, len, node, p, pendingUrls, url;
@@ -167,11 +164,6 @@ LazyLoad = (function (doc) {
     env || getEnv();
 
     if (urls) {
-      // If urls is a string, wrap it in an array. Otherwise assume it's an
-      // array and create a copy of it so modifications won't be made to the
-      // original.
-      urls = typeof urls === 'string' ? [urls] : urls.concat();
-
       // Create a request object for each URL. If multiple URLs are specified,
       // the callback will only be executed after all URLs have been loaded.
       //
@@ -186,18 +178,14 @@ LazyLoad = (function (doc) {
         // Load in parallel.
         queue[type].push({
           urls    : urls,
-          callback: callback,
-          obj     : obj,
-          context : context
+          callback: callback
         });
       } else {
         // Load sequentially.
         for (i = 0, len = urls.length; i < len; ++i) {
           queue[type].push({
             urls    : [urls[i]],
-            callback: i === len - 1 ? callback : null, // callback is only added to the last URL
-            obj     : obj,
-            context : context
+            callback: i === len - 1 ? callback : null // callback is only added to the last URL
           });
         }
       }
@@ -209,7 +197,6 @@ LazyLoad = (function (doc) {
       return;
     }
 
-    head || (head = doc.head || doc.getElementsByTagName('head')[0]);
     pendingUrls = p.urls.concat();
 
     for (i = 0, len = pendingUrls.length; i < len; ++i) {
@@ -225,7 +212,6 @@ LazyLoad = (function (doc) {
         node.async = false;
       }
 
-      node.className = 'lazyload';
       node.setAttribute('charset', 'utf-8');
 
       if (env.ie && !isCSS && 'onreadystatechange' in node && !('draggable' in node)) {
@@ -285,10 +271,10 @@ LazyLoad = (function (doc) {
       hasRules = !!node.sheet.cssRules;
     } catch (ex) {
       // An exception means the stylesheet is still loading.
-      pollCount += 1;
+      ++pollCount;
 
       if (pollCount < 200) {
-        setTimeout(function () { pollGecko(node); }, 50);
+        setTimeout(pollGecko.bind(null, node), 50);
       } else {
         // We've been polling for 10 seconds and nothing's happened. Stop
         // polling and finish the pending requests to avoid blocking further
@@ -325,7 +311,7 @@ LazyLoad = (function (doc) {
         }
       }
 
-      pollCount += 1;
+      ++pollCount;
 
       if (css) {
         if (pollCount < 200) {
@@ -353,14 +339,9 @@ LazyLoad = (function (doc) {
     @param {String|Array} urls CSS URL or array of CSS URLs to load
     @param {Function} callback (optional) callback function to execute when
       the specified stylesheets are loaded
-    @param {Object} obj (optional) object to pass to the callback function
-    @param {Object} context (optional) if provided, the callback function
-      will be executed in this object's context
     @static
     */
-    css: function (urls, callback, obj, context) {
-      load('css', urls, callback, obj, context);
-    },
+    css: load.bind(load, 'css'),
 
     /**
     Requests the specified JavaScript URL or URLs and executes the specified
@@ -377,14 +358,9 @@ LazyLoad = (function (doc) {
     @param {String|Array} urls JS URL or array of JS URLs to load
     @param {Function} callback (optional) callback function to execute when
       the specified scripts are loaded
-    @param {Object} obj (optional) object to pass to the callback function
-    @param {Object} context (optional) if provided, the callback function
-      will be executed in this object's context
     @static
     */
-    js: function (urls, callback, obj, context) {
-      load('js', urls, callback, obj, context);
-    }
+    js: load.bind(load, 'js')
 
   };
 })(this.document);
