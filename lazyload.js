@@ -70,11 +70,13 @@ LazyLoad = (function (doc) {
   @private
   */
   function createNode(name, attrs) {
-    var node = doc.createElement(name), attr;
+    var attr, node = doc.createElement(name);
 
-    for (attr in attrs) {
-      if (attrs.hasOwnProperty(attr)) {
-        node.setAttribute(attr, attrs[attr]);
+    if(attrs) {
+        for (attr in attrs) {
+        if (attrs.hasOwnProperty(attr)) {
+          node.setAttribute(attr, attrs[attr]);
+        }
       }
     }
 
@@ -126,7 +128,7 @@ LazyLoad = (function (doc) {
       // True if this browser supports disabling async mode on dynamically
       // created script nodes. See
       // http://wiki.whatwg.org/wiki/Dynamic_Script_Execution_Order
-      async: doc.createElement('script').async === true
+      async: createNode('script').async === true
     };
 
     (env.webkit = /AppleWebKit\//.test(ua))
@@ -158,7 +160,6 @@ LazyLoad = (function (doc) {
   function load(type, urls, callback) {
     var _finish = finish.bind(null, type),
         isCSS   = type === 'css',
-        nodes   = [],
         i, len, node, p, pendingUrls, url;
 
     env || getEnv();
@@ -214,14 +215,7 @@ LazyLoad = (function (doc) {
 
       node.setAttribute('charset', 'utf-8');
 
-      if (env.ie && !isCSS && 'onreadystatechange' in node && !('draggable' in node)) {
-        node.onreadystatechange = function () {
-          if (/loaded|complete/.test(node.readyState)) {
-            node.onreadystatechange = null;
-            _finish();
-          }
-        };
-      } else if (isCSS && (env.gecko || env.webkit)) {
+      if (isCSS && (env.gecko || env.webkit)) {
         // Gecko and WebKit don't support the onload event on link nodes.
         if (env.webkit) {
           // In WebKit, we can poll for changes to document.styleSheets to
@@ -239,11 +233,7 @@ LazyLoad = (function (doc) {
         node.onload = node.onerror = _finish;
       }
 
-      nodes.push(node);
-    }
-
-    for (i = 0, len = nodes.length; i < len; ++i) {
-      head.appendChild(nodes[i]);
+      head.appendChild(node);
     }
   }
 
