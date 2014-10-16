@@ -39,11 +39,9 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 LazyLoad = (function (doc) {
   // -- Private Variables ------------------------------------------------------
 
-  // User agent and feature test information.
-  var env,
 
   // Reference to the <head> element (populated lazily).
-  head = doc.head,
+  var head = doc.head,
 
   // Requests currently in progress, if any.
   pending = {},
@@ -56,8 +54,25 @@ LazyLoad = (function (doc) {
   queue = {css: [], js: []},
 
   // Reference to the browser's list of stylesheets.
-  styleSheets = doc.styleSheets;
+  styleSheets = doc.styleSheets,
 
+  finishCSS = finish.bind(doc, 'css'),
+
+  ua = navigator.userAgent,
+
+  // User agent and feature test information.
+  env = {
+    // True if this browser supports disabling async mode on dynamically
+    // created script nodes. See
+    // http://wiki.whatwg.org/wiki/Dynamic_Script_Execution_Order
+    async: createNode('script').async === true
+  };
+
+  (env.webkit = /AppleWebKit\//.test(ua))
+    || (env.ie = /Trident/.test(ua))
+    || (env.opera = /Opera/.test(ua))
+    || (env.gecko = /Gecko\//.test(ua))
+    || (env.unknown = true);
   // -- Private Methods --------------------------------------------------------
 
   /**
@@ -74,10 +89,10 @@ LazyLoad = (function (doc) {
 
     if(attrs) {
         for (attr in attrs) {
-        if (attrs.hasOwnProperty(attr)) {
-          node.setAttribute(attr, attrs[attr]);
+          if (attrs.hasOwnProperty(attr)) {
+            node.setAttribute(attr, attrs[attr]);
+          }
         }
-      }
     }
 
     return node;
@@ -108,34 +123,10 @@ LazyLoad = (function (doc) {
       // start the next request in the queue (if any).
       if (!urls.length) {
         callback && callback();
-        pending[type] = null;
+        pending[type] = 0;
         queue[type].length && load(type);
       }
     }
-  }
-
-  /**
-  Populates the <code>env</code> variable with user agent and feature test
-  information.
-
-  @method getEnv
-  @private
-  */
-  function getEnv() {
-    var ua = navigator.userAgent;
-
-    env = {
-      // True if this browser supports disabling async mode on dynamically
-      // created script nodes. See
-      // http://wiki.whatwg.org/wiki/Dynamic_Script_Execution_Order
-      async: createNode('script').async === true
-    };
-
-    (env.webkit = /AppleWebKit\//.test(ua))
-      || (env.ie = /Trident/.test(ua))
-      || (env.opera = /Opera/.test(ua))
-      || (env.gecko = /Gecko\//.test(ua))
-      || (env.unknown = true);
   }
 
   /**
@@ -158,11 +149,9 @@ LazyLoad = (function (doc) {
   @private
   */
   function load(type, urls, callback) {
-    var _finish = finish.bind(null, type),
+    var _finish = finish.bind(doc, type),
         isCSS   = type === 'css',
         i, len, node, p, pendingUrls, url;
-
-    env || getEnv();
 
     if (urls) {
       // Create a request object for each URL. If multiple URLs are specified,
@@ -204,16 +193,16 @@ LazyLoad = (function (doc) {
       url = pendingUrls[i];
 
       if (isCSS) {
-          node = env.gecko ? createNode('style') : createNode('link', {
-            href: url,
-            rel : 'stylesheet'
-          });
+        node = env.gecko ? createNode('style') : createNode('link', {
+          href: url,
+          rel : 'stylesheet'
+        });
       } else {
         node = createNode('script', {src: url});
         node.async = false;
       }
 
-      node.setAttribute('charset', 'utf-8');
+      node.charset = 'utf-8';
 
       if (isCSS && (env.gecko || env.webkit)) {
         // Gecko and WebKit don't support the onload event on link nodes.
@@ -264,19 +253,19 @@ LazyLoad = (function (doc) {
       ++pollCount;
 
       if (pollCount < 200) {
-        setTimeout(pollGecko.bind(null, node), 50);
+        setTimeout(pollGecko.bind(doc, node), 50);
       } else {
         // We've been polling for 10 seconds and nothing's happened. Stop
         // polling and finish the pending requests to avoid blocking further
         // requests.
-        hasRules && finish('css');
+        hasRules && finishCSS();
       }
 
       return;
     }
 
     // If we get here, the stylesheet has loaded.
-    finish('css');
+    finishCSS();
   }
 
   /**
@@ -296,7 +285,7 @@ LazyLoad = (function (doc) {
       // Look for a stylesheet matching the pending URL.
       while (--i >= 0) {
         if (styleSheets[i].href === css.urls[0]) {
-          finish('css');
+          finishCSS();
           break;
         }
       }
@@ -311,7 +300,7 @@ LazyLoad = (function (doc) {
           // indicate that the stylesheet has been removed from the document
           // before it had a chance to load. Stop polling and finish the pending
           // request to prevent blocking further requests.
-          finish('css');
+          finishCSS();
         }
       }
     }
