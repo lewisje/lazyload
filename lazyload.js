@@ -175,7 +175,7 @@ LazyLoad = (function (doc) {
         for (i = 0, len = urls.length; i < len; ++i) {
           queue[type].push({
             urls    : [urls[i]],
-            callback: i === len - 1 ? callback : null // callback is only added to the last URL
+            callback: i === len - 1 ? callback : 0 // callback is only added to the last URL
           });
         }
       }
