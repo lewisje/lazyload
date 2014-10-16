@@ -44,6 +44,7 @@ LazyLoad = (function (doc) {
 
   // Reference to the <head> element (populated lazily).
   head = doc.head,
+
   // Requests currently in progress, if any.
   pending = {},
 
@@ -55,9 +56,7 @@ LazyLoad = (function (doc) {
   queue = {css: [], js: []},
 
   // Reference to the browser's list of stylesheets.
-  styleSheets = doc.styleSheets,
-
-  finishCSS = finish.bind(doc, 'css');
+  styleSheets = doc.styleSheets;
 
   // -- Private Methods --------------------------------------------------------
 
@@ -159,14 +158,11 @@ LazyLoad = (function (doc) {
   @private
   */
   function load(type, urls, callback) {
-    var _finish = finish.bind(doc, type),
+    var _finish = finish.bind(null, type),
         isCSS   = type === 'css',
-        i, len, node, p, pendingUrls, url,
-        queueType = queue[type],
-        pendingType = pending[type];
+        i, len, node, p, pendingUrls, url;
 
     env || getEnv();
-
 
     if (urls) {
       // Create a request object for each URL. If multiple URLs are specified,
@@ -181,14 +177,14 @@ LazyLoad = (function (doc) {
       // are actually downloaded.
       if (isCSS || env.async || env.gecko || env.opera) {
         // Load in parallel.
-        queueType.push({
+        queue[type].push({
           urls    : urls,
           callback: callback
         });
       } else {
         // Load sequentially.
         for (i = 0, len = urls.length; i < len; ++i) {
-          queueType.push({
+          queue[type].push({
             urls    : [urls[i]],
             callback: i === len - 1 ? callback : null // callback is only added to the last URL
           });
@@ -198,7 +194,7 @@ LazyLoad = (function (doc) {
 
     // If a previous load request of this type is currently in progress, we'll
     // wait our turn. Otherwise, grab the next item in the queue.
-    if (pendingType || !(p = pendingType = queueType.shift())) {
+    if (pending[type] || !(p = pending[type] = queue[type].shift())) {
       return;
     }
 
@@ -217,7 +213,7 @@ LazyLoad = (function (doc) {
         node.async = false;
       }
 
-      node.charset = 'utf-8';
+      node.setAttribute('charset', 'utf-8');
 
       if (isCSS && (env.gecko || env.webkit)) {
         // Gecko and WebKit don't support the onload event on link nodes.
@@ -268,19 +264,19 @@ LazyLoad = (function (doc) {
       ++pollCount;
 
       if (pollCount < 200) {
-        setTimeout(pollGecko.bind(doc, node), 50);
+        setTimeout(pollGecko.bind(null, node), 50);
       } else {
         // We've been polling for 10 seconds and nothing's happened. Stop
         // polling and finish the pending requests to avoid blocking further
         // requests.
-        hasRules && finishCSS();
+        hasRules && finish('css');
       }
 
       return;
     }
 
     // If we get here, the stylesheet has loaded.
-    finishCSS()
+    finish('css');
   }
 
   /**
@@ -300,7 +296,7 @@ LazyLoad = (function (doc) {
       // Look for a stylesheet matching the pending URL.
       while (--i >= 0) {
         if (styleSheets[i].href === css.urls[0]) {
-          finishCSS()
+          finish('css');
           break;
         }
       }
@@ -315,7 +311,7 @@ LazyLoad = (function (doc) {
           // indicate that the stylesheet has been removed from the document
           // before it had a chance to load. Stop polling and finish the pending
           // request to prevent blocking further requests.
-          finishCSS()
+          finish('css');
         }
       }
     }
@@ -357,4 +353,4 @@ LazyLoad = (function (doc) {
     js: load.bind(load, 'js')
 
   };
-})(document);
+})(this.document);
