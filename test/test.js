@@ -4,17 +4,21 @@ Run this script with Node.js 0.4.x and browse to http://localhost:3000/ to
 see the test page for LazyLoad.
 **/
 
-var express = require('express'),
+var fs = require('fs');
+// copy current version of LazyLoad
+fs.createReadStream('../lazyload.js').pipe(fs.createWriteStream('public/lazyload.js'));
 
+
+
+var express = require('express'),
     app = express.createServer(
       express.logger(),
       express.static(__dirname + '/public'),
       express.errorHandler({dumpExceptions: true, showStack: true})
-    );
-
-function delayable(req, res, next) {
-  setTimeout(next, req.param('delay', 0));
-}
+    ),
+    delayable = function(req, res, next) {
+      setTimeout(next, req.param('delay', 0));
+    };
 
 app.get('/', function (req, res) {
   res.redirect('/index.html', 303);
@@ -34,5 +38,7 @@ app.get('/js', delayable, function (req, res) {
   res.header('Content-Type', 'application/javascript; charset=utf-8');
   res.send('jslog("script ' + req.param('num') + ' executed");');
 });
+
+console.log('Now go to http://localhost:3000/');
 
 app.listen(3000);
