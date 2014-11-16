@@ -32,7 +32,7 @@ and a context in which to execute the callback.
 
 ```js
 // Load a single JavaScript file and execute a callback when it finishes.
-LazyLoad.js('http://example.com/foo.js', function () {
+LazyLoad.js(['http://example.com/foo.js'], function () {
   alert('foo.js has been loaded');
 });
 
@@ -42,22 +42,22 @@ LazyLoad.js(['foo.js', 'bar.js', 'baz.js'], function () {
 });
 
 // Load a CSS file and pass an argument to the callback function.
-LazyLoad.css('foo.css', function (arg) {
+LazyLoad.css(['foo.css'], function (arg) {
   alert(arg);
-}, 'foo.css has been loaded');
+}.bind(null, 'foo.css has been loaded'));
 
 // Load a CSS file and execute the callback in a different scope.
 LazyLoad.css('foo.css', function () {
   alert(this.foo); // displays 'bar'
-}, null, {foo: 'bar'});
+}.bind({foo: 'bar'}));
 ```
 
 Supported Browsers
 ------------------
 
-  * Firefox 2+
+  * Firefox 3.5+
   * Google Chrome
-  * Internet Explorer 6+
+  * Internet Explorer 9+
   * Opera 9+
   * Safari 3+
   * Mobile Safari
