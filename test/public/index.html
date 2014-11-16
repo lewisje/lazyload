@@ -174,7 +174,7 @@
         csslog('loading (sequential calls)');
 
         for (var i = 0; i < urls.length; ++i) {
-          LazyLoad.css(urls[i], cssComplete);
+          LazyLoad.css([urls[i]], cssComplete);
         }
       }
 
@@ -191,7 +191,7 @@
         jslog('loading (sequential calls)');
 
         for (var i = 0; i < urls.length; ++i) {
-          LazyLoad.js(urls[i], jsComplete);
+          LazyLoad.js([urls[i]], jsComplete);
         }
       }
 
