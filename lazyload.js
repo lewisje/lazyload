@@ -50,6 +50,9 @@ LazyLoad = (function (doc) {
   // finished loading. If this gets too high, we're probably stalled.
   pollCount = 0,
 
+  // Cached requests.
+  cache = {},
+
   // Queued requests.
   queue = {css: [], js: []},
 
@@ -85,14 +88,15 @@ LazyLoad = (function (doc) {
   @private
   */
   function createNode(name, attrs) {
-    var attr, node = doc.createElement(name);
+    var attr,
+        node = doc.createElement(name);
 
     if(attrs) {
-        for (attr in attrs) {
-          if (attrs.hasOwnProperty(attr)) {
-            node.setAttribute(attr, attrs[attr]);
-          }
+      for (attr in attrs) {
+        if (attrs.hasOwnProperty(attr)) {
+          node.setAttribute(attr, attrs[attr]);
         }
+      }
     }
 
     return node;
@@ -116,7 +120,7 @@ LazyLoad = (function (doc) {
       callback = p.callback;
       urls     = p.urls;
 
-      urls.shift();
+      cache[urls.shift()] = true;
       pollCount = 0;
 
       // If this is the last of the pending URLs, execute the callback and
@@ -191,7 +195,14 @@ LazyLoad = (function (doc) {
 
     for (i = 0, len = pendingUrls.length; i < len; ++i) {
       url = pendingUrls[i];
-
+      if(cache[url] !== undefined) {
+        // _finish here can cause unexpected behavior when cache[url] === false but
+        // I won't figure out solution, since first issue on github :-)
+        _finish();
+        continue; //prevent scripts/css from being loaded multiple times
+      } else {
+        cache[url] = false;
+      }
       if (isCSS) {
         node = env.gecko ? createNode('style') : createNode('link', {
           href: url,
