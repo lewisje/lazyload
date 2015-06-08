@@ -7,12 +7,14 @@ page.
 
 Supported browsers include Firefox 3.6+, IE9+, Safari 5.1.4+ (untested) (including Mobile
 Safari), Google Chrome 10+, and Opera 12+. Other browsers may or may not work and
-are not officially supported.
+are not officially supported, including the browsers supported by the original LazyLoad:
+Firefox 2+, IE6+, Safari 3+, Google Chrome 0.8+, and Opera 9+ (not yet tested).
 
-Visit https://github.com/rgrove/lazyload/ for more info.
+Visit https://github.com/lewisje/lazyload/ for more info.
 
 Copyright (c) 2011 Ryan Grove <ryan@wonko.com>
 All rights reserved.
+Changes made by Cezary Daniel Nowak, 2014, and James Edward Lewis II, 2015.
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of
 this software and associated documentation files (the 'Software'), to deal in
@@ -36,12 +38,12 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 @static
 */
 
-LazyLoad = (function (doc) {
+var LazyLoad = (function (doc) {
+  'use strict';
   // -- Private Variables ------------------------------------------------------
 
-
   // Reference to the <head> element (populated lazily).
-  var head = doc.head,
+  var head,
 
   // Requests currently in progress, if any.
   pending = {},
@@ -55,14 +57,14 @@ LazyLoad = (function (doc) {
 
   // Queued requests.
   queue = {css: [], js: []},
+  
+  // Whether Function#bind exists.
+  canBind = typeof Function.prototype.bind === 'function',
 
   // Reference to the browser's list of stylesheets.
   styleSheets = doc.styleSheets,
-
-  finishCSS = finish.bind(doc, 'css'),
-
+  finishCSS = canBind ? finish.bind(doc, 'css') : function finishCSS() {finish('css');},
   ua = navigator.userAgent,
-
   // User agent and feature test information.
   env = {
     // True if this browser supports disabling async mode on dynamically
@@ -71,11 +73,11 @@ LazyLoad = (function (doc) {
     async: createNode('script').async === true
   };
 
-  (env.webkit = /AppleWebKit\//.test(ua))
-    || (env.ie = /Trident/.test(ua))
-    || (env.opera = /Opera/.test(ua))
-    || (env.gecko = /Gecko\//.test(ua))
-    || (env.unknown = true);
+  if (/AppleWebKit\//.test(ua)) env.webkit = true;
+  else if (/MSIE|Trident/.test(ua)) env.ie = true;
+  else if (/Opera/.test(ua)) env.opera = true;
+  else if (/Gecko\//.test(ua)) env.gecko = true;
+  else env.unknown = true;
   // -- Private Methods --------------------------------------------------------
 
   /**
@@ -112,13 +114,11 @@ LazyLoad = (function (doc) {
   @private
   */
   function finish(type) {
-    var p = pending[type],
-        callback,
-        urls;
+    var p = pending[type], callback, urls;
 
     if (p) {
       callback = p.callback;
-      urls     = p.urls;
+      urls = p.urls;
 
       cache[urls.shift()] = true;
       pollCount = 0;
@@ -126,9 +126,9 @@ LazyLoad = (function (doc) {
       // If this is the last of the pending URLs, execute the callback and
       // start the next request in the queue (if any).
       if (!urls.length) {
-        callback && callback();
+        if (typeof callback === 'function') callback();
         pending[type] = 0;
-        queue[type].length && load(type);
+        if (queue[type].length) load(type);
       }
     }
   }
@@ -147,17 +147,25 @@ LazyLoad = (function (doc) {
 
   @method load
   @param {String} type resource type ('css' or 'js')
-  @param {String|Array} urls (optional) URL or array of URLs to load
+  @param {String|Array} urls (optional) URL, comma-separated list of URLs,
+    or array of URLs to load
   @param {Function} callback (optional) callback function to execute when the
     resource is loaded
+  @param {Object} obj (optional) object to pass to the callback function
+  @param {Object} context (optional) if provided, the callback function will
+    be executed in this object's context
   @private
   */
-  function load(type, urls, callback) {
-    var _finish = finish.bind(doc, type),
-        isCSS   = type === 'css',
-        i, len, node, p, pendingUrls, url;
+  function load(type, urls, callback, obj, context) {
+    var _finish = canBind ? finish.bind(doc, type) : function _finish() {finish(type);},
+        isCSS = type === 'css', nodes = [], i, len, node, p, pendingUrls, url;
 
     if (urls) {
+      // If urls is a string, wrap it in an array. Otherwise assume it's an
+      // array and create a copy of it so modifications won't be made to the
+      // original.
+      urls = typeof urls === 'string' ? urls.split(',') : urls.slice();
+
       // Create a request object for each URL. If multiple URLs are specified,
       // the callback will only be executed after all URLs have been loaded.
       //
@@ -171,15 +179,19 @@ LazyLoad = (function (doc) {
       if (isCSS || env.async || env.gecko || env.opera) {
         // Load in parallel.
         queue[type].push({
-          urls    : urls,
-          callback: callback
+          urls : urls,
+          callback: callback,
+          obj : obj,
+          context : context
         });
       } else {
         // Load sequentially.
         for (i = 0, len = urls.length; i < len; ++i) {
           queue[type].push({
-            urls    : [urls[i]],
-            callback: i === len - 1 ? callback : 0 // callback is only added to the last URL
+            urls : [urls[i]],
+            callback: i === len - 1 ? callback : 0, // callback is only added to the last URL
+            obj : obj,
+            context : context
           });
         }
       }
@@ -187,15 +199,19 @@ LazyLoad = (function (doc) {
 
     // If a previous load request of this type is currently in progress, we'll
     // wait our turn. Otherwise, grab the next item in the queue.
-    if (pending[type] || !(p = pending[type] = queue[type].shift())) {
-      return;
-    }
+    if (pending[type] || !(p = pending[type] = queue[type].shift())) return;
+    head = head || doc.head || doc.getElementsByTagName('head')[0];
+    pendingUrls = p.urls.slice();
 
-    pendingUrls = p.urls.concat();
-
+    var nodeReady = function nodeReady() {
+      if (/^(?:loaded|complete)$/i.test(node.readyState)) {
+        node.onreadystatechange = null;
+        _finish();
+      }
+    };
     for (i = 0, len = pendingUrls.length; i < len; ++i) {
       url = pendingUrls[i];
-      if(cache[url] !== undefined) {
+      if(cache[url] != null) {
         // _finish here can cause unexpected behavior when cache[url] === false but
         // I won't figure out solution, since first issue on github :-)
         _finish();
@@ -213,9 +229,12 @@ LazyLoad = (function (doc) {
         node.async = false;
       }
 
-      node.charset = 'utf-8';
+      node.className = 'lazyload';
+      node.setAttribute('charset', 'utf-8');
 
-      if (isCSS && (env.gecko || env.webkit)) {
+      if (env.ie && !isCSS && 'onreadystatechange' in node && !('draggable' in node)) {
+        node.onreadystatechange = nodeReady;
+      } else if (isCSS && (env.gecko || env.webkit)) {
         // Gecko and WebKit don't support the onload event on link nodes.
         if (env.webkit) {
           // In WebKit, we can poll for changes to document.styleSheets to
@@ -232,8 +251,10 @@ LazyLoad = (function (doc) {
       } else {
         node.onload = node.onerror = _finish;
       }
-
-      head.appendChild(node);
+      nodes.push(node);
+    }
+    for (i = 0, len = nodes.length; i < len; ++i) {
+      head.appendChild(nodes[i]);
     }
   }
 
@@ -252,29 +273,21 @@ LazyLoad = (function (doc) {
   @private
   */
   function pollGecko(node) {
-    var hasRules;
+    var hasRules = 'sheet' in node && 'cssRules' in node.sheet;
 
-    try {
-      // We don't really need to store this value or ever refer to it again, but
-      // if we don't store it, Closure Compiler assumes the code is useless and
-      // removes it.
-      hasRules = !!node.sheet.cssRules;
-    } catch (ex) {
-      // An exception means the stylesheet is still loading.
+    if (!hasRules) {
+      // The stylesheet is still loading.
       ++pollCount;
-
       if (pollCount < 200) {
-        setTimeout(pollGecko.bind(doc, node), 50);
+        setTimeout(canBind ? pollGecko.bind(doc, node) : function pollBind() {pollGecko(node);}, 50);
       } else {
         // We've been polling for 10 seconds and nothing's happened. Stop
         // polling and finish the pending requests to avoid blocking further
         // requests.
-        hasRules && finishCSS();
+        if (hasRules) finishCSS();
       }
-
       return;
     }
-
     // If we get here, the stylesheet has loaded.
     finishCSS();
   }
@@ -292,7 +305,6 @@ LazyLoad = (function (doc) {
 
     if (css) {
       i = styleSheets.length;
-
       // Look for a stylesheet matching the pending URL.
       while (--i >= 0) {
         if (styleSheets[i].href === css.urls[0]) {
@@ -302,7 +314,6 @@ LazyLoad = (function (doc) {
       }
 
       ++pollCount;
-
       if (css) {
         if (pollCount < 200) {
           setTimeout(pollWebKit, 50);
@@ -318,7 +329,6 @@ LazyLoad = (function (doc) {
   }
 
   return {
-
     /**
     Requests the specified CSS URL or URLs and executes the specified
     callback (if any) when they have finished loading. If an array of URLs is
@@ -331,7 +341,9 @@ LazyLoad = (function (doc) {
       the specified stylesheets are loaded
     @static
     */
-    css: load.bind(load, 'css'),
+    css: canBind ? load.bind(load, 'css') : function css(urls, callback, obj, context) {
+      load('css', urls, callback, obj, context);
+    },
 
     /**
     Requests the specified JavaScript URL or URLs and executes the specified
@@ -350,7 +362,8 @@ LazyLoad = (function (doc) {
       the specified scripts are loaded
     @static
     */
-    js: load.bind(load, 'js')
-
+    js: canBind ? load.bind(load, 'js') : function js(urls, callback, obj, context) {
+      load('js', urls, callback, obj, context);
+    }
   };
 })(this.document);
