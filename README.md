@@ -1,9 +1,9 @@
 LazyLoad
 ========
 
-**Note:** LazyLoad is no longer being maintained. I'm not responding to issues or pull requests, since I don't use this project anymore and don't have time to work on it. Please feel free to fork it if you want to continue development on it.
+**Note:** LazyLoad is no longer being maintained by its original author, Ryan Grove; he's not responding to issues or pull requests, since I doesn't use this project anymore and doesn't have time to work on it. Please feel free to fork it if you want to continue development on it.
 
-LazyLoad is a tiny (only 966 bytes minified and gzipped), dependency-free
+LazyLoad is a tiny (about 1KB minified and gzipped), dependency-free
 JavaScript utility that makes it super easy to load external JavaScript and CSS
 files on demand.
 
@@ -19,7 +19,7 @@ that larger script loaders provide.
 Downloads
 ---------
 
-  * [lazyload.js](https://github.com/rgrove/lazyload/raw/master/lazyload.js) (full source)
+  * [lazyload.js](https://raw.githubusercontent.com/lewisje/lazyload/master/lazyload.js) (full source)
 
 Usage
 -----
@@ -56,7 +56,7 @@ Supported Browsers
 ------------------
 
   * Firefox 3.5+
-  * Google Chrome
+  * Google Chrome 10+
   * Internet Explorer 9+
   * Opera 9+
   * Safari 3+
@@ -66,11 +66,18 @@ Supported Browsers
 Other browsers may work, but haven't been tested. It's a safe bet that anything
 based on a recent version of Gecko or WebKit will probably work.
 
+I have attempted to restore support for the browsers that the original LazyLoad works on:
+
+  * Firefox 2+
+  * Google Chrome 0.8+
+  * Internet Explorer 6+
+  * Opera 9+
+
 Caveats
 -------
 
 All browsers support parallel loading of CSS. However, only Firefox and Opera
-currently support parallel script loading while preserving execution order. To
+as of 2011 supported parallel script loading while preserving execution order. To
 ensure that scripts are always executed in the correct order, LazyLoad will load
 all scripts sequentially in browsers other than Firefox and Opera. Hopefully
 other browsers will improve their parallel script loading behavior soon.
@@ -80,6 +87,7 @@ License
 
 Copyright (c) 2011 Ryan Grove (ryan@wonko.com).
 All rights reserved.
+Substantial modifications made by Cezary Daniel Nowak (2014) and James Edward Lewis II (2015).
  
 Permission is hereby granted, free of charge, to any person obtaining a copy of
 this software and associated documentation files (the 'Software'), to deal in
