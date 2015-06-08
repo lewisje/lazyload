@@ -126,7 +126,7 @@ var LazyLoad = (function (doc) {
       // If this is the last of the pending URLs, execute the callback and
       // start the next request in the queue (if any).
       if (!urls.length) {
-        if (typeof callback === 'function') callback();
+        if (typeof callback === 'function') callback.call(p.context, p.obj);
         pending[type] = 0;
         if (queue[type].length) load(type);
       }
