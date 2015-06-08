@@ -147,8 +147,7 @@ var LazyLoad = (function (doc) {
 
   @method load
   @param {String} type resource type ('css' or 'js')
-  @param {String|Array} urls (optional) URL, comma-separated list of URLs,
-    or array of URLs to load
+  @param {String|Array} urls (optional) URL or array of URLs to load
   @param {Function} callback (optional) callback function to execute when the
     resource is loaded
   @param {Object} obj (optional) object to pass to the callback function
@@ -164,7 +163,7 @@ var LazyLoad = (function (doc) {
       // If urls is a string, wrap it in an array. Otherwise assume it's an
       // array and create a copy of it so modifications won't be made to the
       // original.
-      urls = typeof urls === 'string' ? urls.split(',') : urls.slice();
+      urls = typeof urls === 'string' ? [urls] : urls.slice();
 
       // Create a request object for each URL. If multiple URLs are specified,
       // the callback will only be executed after all URLs have been loaded.
